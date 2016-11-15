@@ -1,0 +1,104 @@
+package learnSpider;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class ZhiHu {
+	/*
+	 * detail content about a topic in ZhiHu, including the question title, description, the link to 
+	 * the answers as well as its answers.
+	 * WARM: every answer just take a short part of it, maybe not all the text
+	 * FLAW: cannot take the pure text of answer, what we take doesn't filter some code
+	 */
+	public String question;
+	public String questionDescription;
+	public String zhihuUrl;
+	public ArrayList<String> shortAnswers;
+	
+	public ZhiHu(String url){
+		question = "";
+		questionDescription = "";
+		zhihuUrl = "";
+		shortAnswers = new ArrayList<String>();
+		
+		if(getRealUrl(url)){
+			System.out.println("Now is taking : " + zhihuUrl);
+			String content = Spider.SendGet(zhihuUrl, "utf-8");
+			String titlePattern = "zm-item-title.+?<span.+?>(.+?)</span>";
+			String descPattern = "zm-editable-contentent\">(.+?)</div>";
+			String answPattern = "/answer/content.+?<div.+?>(.*?)<a";
+			question = Spider.RegexString(content, titlePattern);
+			questionDescription = Spider.RegexString(content, descPattern);
+			shortAnswers = Spider.GetList(content, answPattern);
+			}
+	}
+	public void detail(){
+		System.out.println("[Question:] " + question + 
+				"\n[Description to the quse:] " + questionDescription +
+				" \n[Link:] " + zhihuUrl + 
+				"\n[shortAnswers:] " + shortAnswers.size()); 
+		for(int j = 0; j < shortAnswers.size(); j ++){
+			System.out.println(shortAnswers.get(j) + "\n");
+		}			
+	}
+	/*
+	 * change the original link like "http://www.zhihu.com/question/22355264/answer/21102139  "
+	 * to "http://www.zhihu.com/question/22355264" as the latter is the right one which contains 
+	 * all the answers to the question, but the first one is what we can get from the commendation 
+	 */
+	boolean getRealUrl(String url){
+		Pattern pattern = Pattern.compile("question/(.*?)/");
+		Matcher matcher = pattern.matcher(url);
+		if(matcher.find()){
+			zhihuUrl = "http://www.zhihu.com/question/" + matcher.group(1);
+			//System.out.println(zhihuUrl);
+		}else{
+			return false;
+		}
+		return true;
+	}
+	/*
+	 * way to return a string that change from a ZhiHu class order to be written into a file
+	 */
+	public String writeString(){
+		String result = "";
+		result += "[question:] " + question + "\r\n";
+		result += "[description:] " + questionDescription + "\r\n";
+		result += "[link:] " + zhihuUrl + "\r\n"; 
+		for(int i = 0; i < shortAnswers.size(); i++){
+			result += "[answer] " + i + " : " + shortAnswers.get(i) + "\r\n";
+		}
+		result += "\r\n\r\n\r\n\r\n";
+		//filter some code to simplify 
+		result = result.replaceAll("<br>", "\r\n");
+		result = result.replaceAll("<.*?>", "");
+		return result;
+	}
+	
+	public static void main(String[] args) throws IOException {
+		String url = "http://www.zhihu.com/explore/recommendations";
+		String content = Spider.SendGet(url, "utf-8");
+		//System.out.println(content);
+		
+		ArrayList<ZhiHu> myZhiHu = Spider.GetAllRecommendTopic(content);
+//		for(int j = 0; j < myZhiHu.size(); j ++){
+//			myZhiHu.get(j).detail();
+//			System.out.println("\n\n\n");
+//		}
+		//write information into a local file
+		for(ZhiHu zhihu : myZhiHu){
+			FileReaderWriter.writeIntoFile(zhihu.writeString(), "D:/editor_zhihu.txt", true);
+		}
+		
+//		File fileDir = new File("D:\\大二上学期");
+//		boolean isSuccess = fileDir.mkdirs();
+//		System.out.println(isSuccess);
+//		File file = new File("D:\\大二上学期\\三、菲菲莹莹.docx");
+//		System.out.println(file.createNewFile());
+		
+	}
+
+}
